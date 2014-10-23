@@ -15,7 +15,7 @@ Depends on the [aerospike-client-go](https://github.com/aerospike/aerospike-clie
 
 Available on [godoc.org](http://godoc.org/github.com/theaidem/aerostore).
 
-Also you can see [full documentation](http://www.gorillatoolkit.org/pkg/sessions) on underlying interface.
+[Full documentation](http://www.gorillatoolkit.org/pkg/sessions) on underlying interface.
 
 ### Examples
 
