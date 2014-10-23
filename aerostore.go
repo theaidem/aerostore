@@ -28,6 +28,8 @@ type AeroStore struct {
 }
 
 // NewAeroStore returns a new AeroStore.
+// ns: Aerospike namespace (similar to database)
+// set: Aerospike set (similar to table)
 func NewAeroStore(ns, set string, host string, port int, keyPairs ...[]byte) (*AeroStore, error) {
 	client, err := as.NewClient(host, port)
 	if err != nil {
@@ -78,8 +80,8 @@ func (s *AeroStore) New(r *http.Request, name string) (*sessions.Session, error)
 	if c, errCookie := r.Cookie(name); errCookie == nil {
 		err = securecookie.DecodeMulti(name, c.Value, &session.ID, s.Codecs...)
 		if err == nil {
-			err = s.load(session)
-			session.IsNew = !(err == nil)
+			ok, err := s.load(session)
+			session.IsNew = !(err == nil && ok) // not new if no error and data available
 		}
 	}
 	return session, err
@@ -132,21 +134,24 @@ func (s *AeroStore) save(session *sessions.Session) error {
 }
 
 // load stores the session in Aerospike.
-func (s *AeroStore) load(session *sessions.Session) error {
+func (s *AeroStore) load(session *sessions.Session) (bool, error) {
 	if !s.client.IsConnected() {
-		return notConnError
+		return false, notConnError
 	}
 
 	key, err := as.NewKey(s.ns, s.set, "session_"+session.ID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	rec, err := s.client.Get(nil, key)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	dec := gob.NewDecoder(bytes.NewBuffer(rec.Bins["data"].([]byte)))
-	return dec.Decode(&session.Values)
+	if rec != nil {
+		dec := gob.NewDecoder(bytes.NewBuffer(rec.Bins["data"].([]byte)))
+		return true, dec.Decode(&session.Values)
+	}
+	return false, nil
 }
